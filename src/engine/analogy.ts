@@ -1,4 +1,5 @@
-import { predict, type Case, type Decision, type Situation, type SituationKind, type Verdict } from './cases';
+import { predict, type Decision, type Memory, type Situation, type SituationKind, type Verdict } from './memory';
+import { isLookalike } from './knowledge';
 import type { Match } from './match';
 import { maskGrid, type Entity, type RelationType, type Scene } from './scene';
 import { clamp, distance, type Face, type Photo, type Point } from './vision';
@@ -15,7 +16,8 @@ import { clamp, distance, type Face, type Photo, type Point } from './vision';
  *    are preserved by the rest of the mapping. A pairing that fits a coherent system of
  *    relations beats an isolated look-alike.
  * 3. Planning an edit: when one entity is swapped for its counterpart, every entity related to
- *    it is judged (moves with it / stays put) by analogy to stored cases (see cases.ts).
+ *    it is judged (moves with it / stays put) by mapping it onto physical laws and remembered
+ *    choices (see memory.ts, physics.ts).
  */
 
 /** Camera change: a point p in the main photo is at p·scale + (dx, dy) in the other photo. */
@@ -121,12 +123,14 @@ function colourSimilarity(a: number[], b: number[]) {
 
 /** Local match quality of two entities before structure is considered. */
 function kernel(a: Entity, b: Entity, shift: Shift, faceAgreement: (a: Entity, b: Entity) => number) {
-  if (a.kind !== b.kind || (a.kind === 'object' && a.label !== b.label)) return 0;
+  if (a.kind !== b.kind || (a.kind === 'object' && !isLookalike(a.label, b.label))) return 0;
+  // A detector may name the same seat "chair" in one shot and "bench" in the next.
+  const naming = a.label === b.label ? 1 : 0.7;
   const expected = applyShift(shift, a.center);
   const reach = 0.5 * Math.max(a.box.w, a.box.h * 0.6) * shift.scale;
   const position = Math.exp(-((distance(expected, b.center) / reach) ** 2));
   const size = Math.exp(-1.5 * Math.abs(Math.log(b.area / Math.max(1, a.area * shift.scale ** 2))));
-  return 0.4 * position + 0.15 * size + 0.25 * colourSimilarity(a.colour, b.colour) + 0.2 * faceAgreement(a, b);
+  return naming * (0.4 * position + 0.15 * size + 0.25 * colourSimilarity(a.colour, b.colour) + 0.2 * faceAgreement(a, b));
 }
 
 const key = (type: RelationType, a: string, b: string) => `${type}|${a}|${b}`;
@@ -225,6 +229,7 @@ function situationKind(scene: Scene, target: Entity, other: Entity): SituationKi
     if (r.type === 'holds') return r.a === target.id ? 'held-by-target' : 'holder-of-target';
     if (r.type === 'carries') return r.a === target.id ? 'carried-by-target' : 'holder-of-target';
     if (r.type === 'sits-on') return r.a === target.id ? 'seat-of-target' : 'holder-of-target';
+    if (r.type === 'rides') return r.a === target.id ? 'ridden-by-target' : 'holder-of-target';
   }
   for (const r of relations) {
     if (r.type === 'in-front-of') return r.a === other.id ? 'in-front-of-target' : 'behind-target';
@@ -235,7 +240,7 @@ function situationKind(scene: Scene, target: Entity, other: Entity): SituationKi
 
 /**
  * Everything that might be affected by swapping `target` for `donor`, each with a verdict
- * reached by analogy to stored cases (and any override already made).
+ * reached by analogy to physical laws and remembered choices (and any override already made).
  */
 export function planSwap(
   target: Entity,
@@ -243,7 +248,7 @@ export function planSwap(
   mainScene: Scene,
   otherScene: Scene,
   mapping: Mapping,
-  cases: Case[],
+  memory: Memory,
   overrides: Record<string, Decision>,
 ): Involvement[] {
   const reverse = new Map([...mapping.pairs].map(([mainId, pair]) => [pair.entity.id, mainId]));
@@ -271,7 +276,7 @@ export function planSwap(
       sizeRatio: entity.area / Math.max(1, target.area),
       keptInOther: otherRelation === relation,
     };
-    const verdict = predict(situation, cases);
+    const verdict = predict(situation, memory);
     const override = overrides[entity.id];
     // Depth: in front if it stands in front of the target here, or its counterpart stands in
     // front of the donor in the other shot; whoever holds a swapped object covers it with a hand.
@@ -285,7 +290,7 @@ export function planSwap(
     const relation = situationKind(otherScene, donor, thing);
     if (relation !== 'held-by-target' && relation !== 'carried-by-target') continue;
     const situation: Situation = { relation, label: thing.label, kind: 'object', sizeRatio: thing.area / Math.max(1, donor.area), keptInOther: true };
-    const verdict = predict(situation, cases);
+    const verdict = predict(situation, memory);
     const override = overrides[thing.id];
     involved.push({ entity: thing, counterpart: thing, situation, verdict, decision: override ?? verdict.decision, overridden: override !== undefined, inFront: false });
   }
@@ -302,6 +307,7 @@ export function explain(involvement: Involvement, targetName: string) {
     'held-by-target': `${targetName} is holding ${it}`,
     'carried-by-target': `${targetName} is wearing or carrying ${it}`,
     'seat-of-target': `${targetName} is sitting on ${it}`,
+    'ridden-by-target': `${targetName} is riding ${it}`,
     'holder-of-target': person ? `they're holding ${targetName}` : `${targetName} rests on it`,
     'in-front-of-target': `${its} in front of ${targetName}`,
     'behind-target': `${its} behind ${targetName}`,

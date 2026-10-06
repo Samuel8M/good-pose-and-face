@@ -1,6 +1,7 @@
 import { InteractiveSegmenter, ObjectDetector, PoseLandmarker } from '@mediapipe/tasks-vision';
 import wasmLoaderPath from '@mediapipe/tasks-vision/vision_wasm_internal.js?url';
 import wasmBinaryPath from '@mediapipe/tasks-vision/vision_wasm_internal.wasm?url';
+import { checkDetection, has } from './knowledge';
 import { clamp, distance, FriendlyError, type Box, type Photo, type Point } from './vision';
 
 /*
@@ -37,18 +38,19 @@ export type Entity = {
   faceId?: string;
   thumb: string;
 };
-export type RelationType = 'holds' | 'carries' | 'sits-on' | 'in-front-of' | 'touches' | 'left-of' | 'above';
+export type RelationType = 'holds' | 'carries' | 'sits-on' | 'rides' | 'in-front-of' | 'touches' | 'left-of' | 'above';
 export type Relation = { type: RelationType; a: string; b: string; weight: number };
-export type Scene = { entities: Entity[]; relations: Relation[] };
+/** A detection the common-sense check dropped or relabelled, with why (see knowledge.ts). */
+export type Correction = { label: string; to?: string; reason: string };
+export type Scene = { entities: Entity[]; relations: Relation[]; corrections: Correction[] };
 
 const MODELS = 'https://storage.googleapis.com/mediapipe-models';
 const DETECTOR_URL = `${MODELS}/object_detector/efficientdet_lite2/float16/1/efficientdet_lite2.tflite`;
 const POSE_URL = `${MODELS}/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task`;
 const SEGMENTER_URL = `${MODELS}/interactive_segmenter/magic_touch/float32/1/magic_touch.tflite`;
-const CARRIED = new Set(['handbag', 'backpack', 'tie', 'umbrella', 'suitcase']);
-const SEATS = new Set(['chair', 'couch', 'bench', 'bed', 'toilet']);
 // Body landmark indices (MediaPipe pose).
 const NOSE = 0, L_SHOULDER = 11, R_SHOULDER = 12, L_HIP = 23, R_HIP = 24, L_KNEE = 25, R_KNEE = 26;
+const FEET = [27, 28, 29, 30, 31, 32];
 const HANDS = [15, 16, 17, 18, 19, 20, 21, 22];
 
 type Models = { detector: ObjectDetector; pose: PoseLandmarker; segmenter: InteractiveSegmenter };
@@ -340,21 +342,25 @@ function relate(photo: Photo, entities: Entity[]): Relation[] {
       if (person.kind !== 'person' || thing.kind !== 'object') continue;
       const strength = touching + overlapOfSmaller(person.box, thing.box) * 0.5;
       const pose = person.pose;
-      if (CARRIED.has(thing.label) && overlapOfSmaller(person.box, thing.box) > 0.5) {
+      // Which relation is possible comes from the object's interaction schemas (knowledge.ts);
+      // whether it holds comes from where the body actually is.
+      const seen = (i: number) => !!pose && pose.visibility[i] > 0.3;
+      const hipOver = (box: Box, below: number) => !!pose && [L_HIP, R_HIP].some((h) => {
+        const hip = pose.points[h];
+        return hip.x > box.x - box.w * 0.3 && hip.x < box.x + box.w * 1.3 && hip.y > box.y - box.h * below && hip.y < box.y + box.h;
+      });
+      const feetOn = !!pose && FEET.some((i) => seen(i) && inside(pose.points[i], grow(thing.box, 0.15, 0.4, photo.width, photo.height)));
+      const handNear = !!pose && HANDS.some((h) => seen(h) && inside(pose.points[h], grow(thing.box, 0.25, 0.25, photo.width, photo.height)));
+      if (has(thing.label, 'ride') && (hipOver(thing.box, 0.5) || feetOn)) {
+        claim(thing, { person, type: 'rides', strength: strength + 0.3 });
+        owned = true;
+      } else if (has(thing.label, 'wear') && overlapOfSmaller(person.box, thing.box) > 0.5) {
         claim(thing, { person, type: 'carries', strength });
         owned = true;
-      } else if (SEATS.has(thing.label) && pose) {
-        const seat = thing.box;
-        const sitting = [L_HIP, R_HIP].some((h) => {
-          const hip = pose.points[h];
-          return hip.x > seat.x - seat.w * 0.3 && hip.x < seat.x + seat.w * 1.3 && hip.y > seat.y - seat.h * 0.6 && hip.y < seat.y + seat.h;
-        });
-        if (sitting) {
-          claim(thing, { person, type: 'sits-on', strength });
-          owned = true;
-        }
-      } else if (pose && thing.area < person.area * 0.6
-        && HANDS.some((h) => pose.visibility[h] > 0.3 && inside(pose.points[h], grow(thing.box, 0.25, 0.25, photo.width, photo.height)))) {
+      } else if (has(thing.label, 'seat') && hipOver(thing.box, 0.6)) {
+        claim(thing, { person, type: 'sits-on', strength });
+        owned = true;
+      } else if (has(thing.label, 'grasp') && handNear && thing.area < person.area * 0.6) {
         claim(thing, { person, type: 'holds', strength: strength + 0.5 });
         owned = true;
       }
@@ -434,9 +440,27 @@ export async function perceiveScene(photo: Photo, onTick: (fraction: number) => 
   const linked = linkFaces(photo, entities.filter((e) => e.kind === 'person'));
   await build(proposePeopleFromFaces(photo, linked), 0.85, 0.97);
   linkFaces(photo, entities.filter((e) => e.kind === 'person' && !e.faceId));
-  const relations = relate(photo, entities);
+  // Common-sense check of every object against the people (size at the same depth, worn
+  // things on a wearer); drops false alarms and relabels look-alikes whose size fits better.
+  const people = entities.filter((e) => e.kind === 'person').map((p) => ({
+    box: p.box,
+    shoulderY: p.pose ? (p.pose.points[L_SHOULDER].y + p.pose.points[R_SHOULDER].y) / 2 : undefined,
+    hipY: p.pose ? (p.pose.points[L_HIP].y + p.pose.points[R_HIP].y) / 2 : undefined,
+  }));
+  const corrections: Correction[] = [];
+  const kept = entities.filter((entity) => {
+    if (entity.kind !== 'object') return true;
+    const verdict = checkDetection(entity, people);
+    if (!verdict.keep) corrections.push({ label: entity.label, reason: verdict.reason ?? 'implausible' });
+    else if (verdict.label !== entity.label) {
+      corrections.push({ label: entity.label, to: verdict.label, reason: verdict.reason ?? 'look-alike fits better' });
+      entity.label = verdict.label;
+    }
+    return verdict.keep;
+  });
+  const relations = relate(photo, kept);
   onTick(1);
-  return { entities, relations };
+  return { entities: kept, relations, corrections };
 }
 
 /** "Person 2", "Teddy bear" … for showing to people. */

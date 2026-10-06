@@ -181,3 +181,6 @@ img { display: block; }
 .involved .button { grid-column: 2; justify-self: start; }
 .button.small { min-height: 38px; padding: 0 12px; font-size: 14px; }
 .learned { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 10px 12px; border-radius: 10px; background: var(--green-soft); color: var(--green-dark); font-size: 15px; }
+.dreams { margin: 0 0 12px; padding: 10px 12px; border-radius: 10px; background: #f1f4fb; font-size: 15px; }
+.dreams ul { margin: 6px 0 0; padding-left: 18px; }
+.dreams li { margin-bottom: 4px; }

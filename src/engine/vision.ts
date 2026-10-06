@@ -11,6 +11,8 @@ export type Face = {
   photoId: string;
   /** 468 mesh landmarks in photo pixels. */
   points: Point[];
+  /** Depth of each landmark in pixels (smaller is nearer the camera); gives the face surface its shape for lighting. */
+  depth: number[];
   box: Box;
   center: Point;
   /** Face width in pixels; the unit for every distance comparison. */
@@ -173,7 +175,7 @@ function detectionCrops(width: number, height: number): Box[] {
   return crops;
 }
 
-type RawFace = { points: Point[]; blend: Category[]; box: Box };
+type RawFace = { points: Point[]; depth: number[]; blend: Category[]; box: Box };
 type Proposal = { box: Box; score: number };
 
 function boundsOf(points: Point[]): Box {
@@ -255,9 +257,11 @@ async function findFaces(bitmap: ImageBitmap, onTick: (fraction: number) => void
     });
     if (best >= 0 && bestDistance < 0.25) {
       const points = result.faceLandmarks[best].slice(0, MESH_SIZE).map((p) => ({ x: crop.x + p.x * image.width * scale, y: crop.y + p.y * image.height * scale }));
+      // MediaPipe gives depth on roughly the same scale as x.
+      const depth = result.faceLandmarks[best].slice(0, MESH_SIZE).map((p) => p.z * image.width * scale);
       const faceBox = boundsOf(points);
       if (!confirmed.some((other) => overlaps(other.box, faceBox))) {
-        confirmed.push({ points, box: faceBox, blend: result.faceBlendshapes[best]?.categories ?? [] });
+        confirmed.push({ points, depth, box: faceBox, blend: result.faceBlendshapes[best]?.categories ?? [] });
       }
     }
     onTick(0.6 + ((index + 1) / Math.max(1, proposals.length)) * 0.4);
@@ -349,7 +353,7 @@ function cropThumb(bitmap: ImageBitmap, center: Point, side: number, size: numbe
 }
 
 function describeFace(raw: RawFace, bitmap: ImageBitmap, photoId: string): Face {
-  const { points, box } = raw;
+  const { points, box, depth } = raw;
   const score = (name: string) => raw.blend.find((category) => category.categoryName === name)?.score ?? 0;
   const aspect = (eye: number[]) =>
     (distance(points[eye[1]], points[eye[5]]) + distance(points[eye[2]], points[eye[4]])) / (2 * Math.max(1, distance(points[eye[0]], points[eye[3]])));
@@ -373,6 +377,7 @@ function describeFace(raw: RawFace, bitmap: ImageBitmap, photoId: string): Face 
     id: uid('face'),
     photoId,
     points,
+    depth,
     box,
     center,
     size: box.w,

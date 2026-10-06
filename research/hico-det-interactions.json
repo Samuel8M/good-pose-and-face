@@ -1,0 +1,685 @@
+{
+ "source": "HICO-DET human-object interaction categories (Chao et al., WACV 2018), 600 <person, verb, object> classes over the 80 COCO objects; extracted from YueLiao/gen-vlkt datasets/hico_text_label.py. The 80 \"no interaction\" classes are omitted.",
+ "objects": {
+  "airplane": [
+   "boarding",
+   "directing",
+   "exiting",
+   "flying",
+   "inspecting",
+   "loading",
+   "riding",
+   "sitting on",
+   "washing"
+  ],
+  "apple": [
+   "buying",
+   "cutting",
+   "eating",
+   "holding",
+   "inspecting",
+   "peeling",
+   "picking",
+   "smelling",
+   "washing"
+  ],
+  "backpack": [
+   "carrying",
+   "holding",
+   "inspecting",
+   "opening",
+   "wearing"
+  ],
+  "banana": [
+   "buying",
+   "carrying",
+   "cutting",
+   "eating",
+   "holding",
+   "inspecting",
+   "peeling",
+   "picking",
+   "smelling"
+  ],
+  "baseball bat": [
+   "breaking",
+   "carrying",
+   "holding",
+   "signing",
+   "swinging",
+   "throwing",
+   "wielding"
+  ],
+  "baseball glove": [
+   "holding",
+   "wearing"
+  ],
+  "bear": [
+   "feeding",
+   "hunting",
+   "watching"
+  ],
+  "bed": [
+   "cleaning",
+   "lying on",
+   "sitting on"
+  ],
+  "bench": [
+   "inspecting",
+   "lying on",
+   "sitting on"
+  ],
+  "bicycle": [
+   "carrying",
+   "holding",
+   "hopping on",
+   "inspecting",
+   "jumping",
+   "parking",
+   "pushing",
+   "repairing",
+   "riding",
+   "sitting on",
+   "straddling",
+   "walking",
+   "washing"
+  ],
+  "bird": [
+   "chasing",
+   "feeding",
+   "holding",
+   "petting",
+   "releasing",
+   "watching"
+  ],
+  "boat": [
+   "boarding",
+   "driving",
+   "exiting",
+   "inspecting",
+   "jumping",
+   "launching",
+   "repairing",
+   "riding",
+   "rowing",
+   "sailing",
+   "sitting on",
+   "standing on",
+   "tying",
+   "washing"
+  ],
+  "book": [
+   "carrying",
+   "holding",
+   "opening",
+   "reading"
+  ],
+  "bottle": [
+   "carrying",
+   "drinking with",
+   "holding",
+   "inspecting",
+   "licking",
+   "opening",
+   "pouring"
+  ],
+  "bowl": [
+   "holding",
+   "licking",
+   "stirring",
+   "washing"
+  ],
+  "broccoli": [
+   "cutting",
+   "eating",
+   "holding",
+   "smelling",
+   "stirring",
+   "washing"
+  ],
+  "bus": [
+   "boarding",
+   "directing",
+   "driving",
+   "exiting",
+   "inspecting",
+   "loading",
+   "riding",
+   "sitting on",
+   "washing",
+   "waving"
+  ],
+  "cake": [
+   "blowing",
+   "carrying",
+   "cutting",
+   "eating",
+   "holding",
+   "lighting",
+   "making",
+   "picking up"
+  ],
+  "car": [
+   "boarding",
+   "directing",
+   "driving",
+   "hosing",
+   "inspecting",
+   "jumping",
+   "loading",
+   "parking",
+   "riding",
+   "washing"
+  ],
+  "carrot": [
+   "carrying",
+   "cooking",
+   "cutting",
+   "eating",
+   "holding",
+   "peeling",
+   "smelling",
+   "stirring",
+   "washing"
+  ],
+  "cat": [
+   "chasing",
+   "drying",
+   "feeding",
+   "holding",
+   "hugging",
+   "kissing",
+   "petting",
+   "scratching",
+   "washing"
+  ],
+  "cell phone": [
+   "carrying",
+   "holding",
+   "reading",
+   "repairing",
+   "talking on",
+   "texting on"
+  ],
+  "chair": [
+   "carrying",
+   "holding",
+   "lying on",
+   "sitting on",
+   "standing on"
+  ],
+  "clock": [
+   "checking",
+   "holding",
+   "repairing",
+   "setting"
+  ],
+  "couch": [
+   "carrying",
+   "lying on",
+   "sitting on"
+  ],
+  "cow": [
+   "feeding",
+   "herding",
+   "holding",
+   "hugging",
+   "kissing",
+   "lassoing",
+   "milking",
+   "petting",
+   "riding",
+   "walking"
+  ],
+  "cup": [
+   "carrying",
+   "drinking with",
+   "filling",
+   "holding",
+   "inspecting",
+   "pouring",
+   "sipping",
+   "smelling",
+   "washing"
+  ],
+  "dining table": [
+   "cleaning",
+   "eating at",
+   "sitting at"
+  ],
+  "dog": [
+   "carrying",
+   "chasing",
+   "drying",
+   "feeding",
+   "grooming",
+   "holding",
+   "hosing",
+   "hugging",
+   "inspecting",
+   "kissing",
+   "petting",
+   "running",
+   "scratching",
+   "straddling",
+   "training",
+   "walking",
+   "washing"
+  ],
+  "donut": [
+   "buying",
+   "carrying",
+   "eating",
+   "holding",
+   "making",
+   "picking up",
+   "smelling"
+  ],
+  "elephant": [
+   "feeding",
+   "holding",
+   "hopping on",
+   "hosing",
+   "hugging",
+   "kissing",
+   "petting",
+   "riding",
+   "walking",
+   "washing",
+   "watching"
+  ],
+  "fire hydrant": [
+   "hugging",
+   "inspecting",
+   "opening",
+   "painting"
+  ],
+  "fork": [
+   "holding",
+   "licking",
+   "lifting",
+   "sticking",
+   "washing"
+  ],
+  "frisbee": [
+   "blocking",
+   "catching",
+   "holding",
+   "spinning",
+   "throwing"
+  ],
+  "giraffe": [
+   "feeding",
+   "kissing",
+   "petting",
+   "riding",
+   "watching"
+  ],
+  "hair drier": [
+   "holding",
+   "operating",
+   "repairing"
+  ],
+  "handbag": [
+   "carrying",
+   "holding",
+   "inspecting"
+  ],
+  "horse": [
+   "feeding",
+   "grooming",
+   "holding",
+   "hopping on",
+   "hugging",
+   "jumping",
+   "kissing",
+   "loading",
+   "petting",
+   "racing",
+   "riding",
+   "running",
+   "straddling",
+   "training",
+   "walking",
+   "washing"
+  ],
+  "hot dog": [
+   "carrying",
+   "cooking",
+   "cutting",
+   "eating",
+   "holding",
+   "making"
+  ],
+  "keyboard": [
+   "carrying",
+   "cleaning",
+   "holding",
+   "typing on"
+  ],
+  "kite": [
+   "assembling",
+   "carrying",
+   "flying",
+   "holding",
+   "inspecting",
+   "launching",
+   "pulling"
+  ],
+  "knife": [
+   "cutting with",
+   "holding",
+   "licking",
+   "sticking",
+   "washing",
+   "wielding"
+  ],
+  "laptop": [
+   "holding",
+   "opening",
+   "reading",
+   "repairing",
+   "typing on"
+  ],
+  "microwave": [
+   "cleaning",
+   "opening",
+   "operating"
+  ],
+  "motorcycle": [
+   "holding",
+   "hopping on",
+   "inspecting",
+   "jumping",
+   "parking",
+   "pushing",
+   "racing",
+   "riding",
+   "sitting on",
+   "straddling",
+   "turning",
+   "walking",
+   "washing"
+  ],
+  "mouse": [
+   "controlling",
+   "holding",
+   "repairing"
+  ],
+  "orange": [
+   "buying",
+   "cutting",
+   "eating",
+   "holding",
+   "inspecting",
+   "peeling",
+   "picking",
+   "squeezing",
+   "washing"
+  ],
+  "oven": [
+   "cleaning",
+   "holding",
+   "inspecting",
+   "opening",
+   "operating",
+   "repairing"
+  ],
+  "parking meter": [
+   "checking",
+   "paying",
+   "repairing"
+  ],
+  "person": [
+   "carrying",
+   "greeting",
+   "holding",
+   "hugging",
+   "kissing",
+   "licking",
+   "stabbing",
+   "tagging",
+   "teaching"
+  ],
+  "pizza": [
+   "buying",
+   "carrying",
+   "cooking",
+   "cutting",
+   "eating",
+   "holding",
+   "making",
+   "picking up",
+   "sliding",
+   "smelling"
+  ],
+  "potted plant": [
+   "carrying",
+   "holding",
+   "hosing"
+  ],
+  "refrigerator": [
+   "cleaning",
+   "holding",
+   "moving",
+   "opening"
+  ],
+  "remote": [
+   "holding",
+   "pointing",
+   "swinging"
+  ],
+  "sandwich": [
+   "carrying",
+   "cooking",
+   "cutting",
+   "eating",
+   "holding",
+   "making"
+  ],
+  "scissors": [
+   "cutting with",
+   "holding",
+   "opening"
+  ],
+  "sheep": [
+   "carrying",
+   "feeding",
+   "herding",
+   "holding",
+   "hugging",
+   "kissing",
+   "petting",
+   "riding",
+   "shearing",
+   "walking",
+   "washing"
+  ],
+  "sink": [
+   "cleaning",
+   "repairing",
+   "washing"
+  ],
+  "skateboard": [
+   "carrying",
+   "flipping",
+   "grinding",
+   "holding",
+   "jumping",
+   "picking up",
+   "riding",
+   "sitting on",
+   "standing on"
+  ],
+  "skis": [
+   "adjusting",
+   "carrying",
+   "holding",
+   "inspecting",
+   "jumping",
+   "picking up",
+   "repairing",
+   "riding",
+   "standing on",
+   "wearing"
+  ],
+  "snowboard": [
+   "adjusting",
+   "carrying",
+   "grinding",
+   "holding",
+   "jumping",
+   "riding",
+   "standing on",
+   "wearing"
+  ],
+  "spoon": [
+   "holding",
+   "licking",
+   "sipping",
+   "washing"
+  ],
+  "sports ball": [
+   "blocking",
+   "carrying",
+   "catching",
+   "dribbling",
+   "hitting",
+   "holding",
+   "inspecting",
+   "kicking",
+   "picking up",
+   "serving",
+   "signing",
+   "spinning",
+   "throwing"
+  ],
+  "stop sign": [
+   "holding",
+   "standing under",
+   "stopping at"
+  ],
+  "suitcase": [
+   "carrying",
+   "dragging",
+   "holding",
+   "hugging",
+   "loading",
+   "opening",
+   "packing",
+   "picking up",
+   "zipping"
+  ],
+  "surfboard": [
+   "carrying",
+   "dragging",
+   "holding",
+   "inspecting",
+   "jumping",
+   "loading",
+   "lying on",
+   "riding",
+   "sitting on",
+   "standing on",
+   "washing"
+  ],
+  "teddy bear": [
+   "carrying",
+   "holding",
+   "hugging",
+   "kissing"
+  ],
+  "tennis racket": [
+   "carrying",
+   "holding",
+   "inspecting",
+   "swinging"
+  ],
+  "tie": [
+   "adjusting",
+   "cutting",
+   "holding",
+   "inspecting",
+   "pulling",
+   "tying",
+   "wearing"
+  ],
+  "toaster": [
+   "holding",
+   "operating",
+   "repairing"
+  ],
+  "toilet": [
+   "cleaning",
+   "flushing",
+   "opening",
+   "repairing",
+   "sitting on",
+   "standing on",
+   "washing"
+  ],
+  "toothbrush": [
+   "brushing with",
+   "holding",
+   "washing"
+  ],
+  "traffic light": [
+   "installing",
+   "repairing",
+   "standing under",
+   "stopping at"
+  ],
+  "train": [
+   "boarding",
+   "driving",
+   "exiting",
+   "loading",
+   "riding",
+   "sitting on",
+   "washing"
+  ],
+  "truck": [
+   "directing",
+   "driving",
+   "inspecting",
+   "loading",
+   "repairing",
+   "riding",
+   "sitting on",
+   "washing"
+  ],
+  "tv": [
+   "controlling",
+   "repairing",
+   "watching"
+  ],
+  "umbrella": [
+   "carrying",
+   "holding",
+   "losing",
+   "opening",
+   "repairing",
+   "setting",
+   "standing under"
+  ],
+  "vase": [
+   "holding",
+   "making",
+   "painting"
+  ],
+  "wine glass": [
+   "filling",
+   "holding",
+   "licking",
+   "sipping",
+   "toasting",
+   "washing"
+  ],
+  "zebra": [
+   "feeding",
+   "holding",
+   "petting",
+   "watching"
+  ]
+ }
+}

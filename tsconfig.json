@@ -8,6 +8,7 @@
     "strict": true,
     "strictFunctionTypes": false,
     "isolatedModules": true,
+    "resolveJsonModule": true,
     "skipLibCheck": true,
     "noEmit": true,
     "noImplicitReturns": true,

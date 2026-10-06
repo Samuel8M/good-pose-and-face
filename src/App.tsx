@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { explain as explainInvolvement, mapScenes, personQuality, planSwap, rankEntityCandidates, type Involvement, type Mapping } from './engine/analogy';
-import { forget, learn, learnedCount, loadCases, type Decision } from './engine/cases';
+import { dream, forget, learn, learnedCount, loadMemory, type Decision } from './engine/memory';
 import { exportJpeg, renderOverlay, type PlacedSceneSwap, type Swap } from './engine/compose';
 import { drawRegionPreview, editRegion, type EditRegion, type SceneSwap } from './engine/composeScene';
 import { correspond, eyesLookClosed, eyesReadable, quality, rankCandidates, suggestedFix, type Match } from './engine/match';
@@ -85,8 +85,21 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('face');
   const [showEveryone, setShowEveryone] = useState(false);
   const [showRegion, setShowRegion] = useState(true);
-  const [cases, setCases] = useState(loadCases);
-  const [learned, setLearned] = useState(learnedCount);
+  const [memory, setMemory] = useState(loadMemory);
+  const learned = learnedCount(memory);
+  // Dream (consolidate new lessons into general rules) whenever there are new ones and the
+  // device is idle, so it never slows down editing.
+  const unconsolidated = memory.episodes.filter((e) => !e.consolidated).length;
+  useEffect(() => {
+    if (!unconsolidated) return;
+    const run = () => setMemory((current) => dream(current));
+    if ('requestIdleCallback' in window) {
+      const handle = window.requestIdleCallback(run, { timeout: 4000 });
+      return () => window.cancelIdleCallback(handle);
+    }
+    const handle = setTimeout(run, 1500);
+    return () => clearTimeout(handle);
+  }, [unconsolidated]);
   const [busy, setBusy] = useState<{ text: string; progress: number } | null>(null);
   const [problems, setProblems] = useState<string[]>([]);
   const [comparing, setComparing] = useState(false);
@@ -132,7 +145,7 @@ export default function App() {
       const donor = entityIndex.get(choice.donorId);
       const mapping = donor && mappings.get(donor.photo.id);
       if (!target || !donor || !mapping) continue;
-      const involved = planSwap(target, donor.entity, scene, scenes[donor.photo.id], mapping, cases, choice.overrides);
+      const involved = planSwap(target, donor.entity, scene, scenes[donor.photo.id], mapping, memory, choice.overrides);
       const swap: SceneSwap = { target, donor: donor.entity, donorPhoto: donor.photo, shift: mapping.shift, involved };
       const key = `${main.id}|${target.id}|${donor.entity.id}|${involved.map((i) => `${i.entity.id}:${i.decision}`).join(',')}`;
       let region = regionCache.current.get(key);
@@ -300,8 +313,7 @@ export default function App() {
     });
     // Teach the case library: next time an analogous situation comes up, this choice counts.
     if (decision !== involvement.verdict.decision) {
-      setCases(learn(involvement.situation, decision, `${nameOf(involvement.entity).toLowerCase()} and ${nameOf(target)}`));
-      setLearned(learnedCount());
+      setMemory((current) => learn(current, involvement.situation, decision, `${nameOf(involvement.entity).toLowerCase()} and ${nameOf(target)}`));
     }
     setSaved('');
   }
@@ -650,13 +662,20 @@ export default function App() {
               <li><b>Relations.</b> Who is <em>holding</em>, <em>carrying</em> or <em>sitting on</em> what, who stands <em>in front of</em> whom, and who is beside whom.</li>
               <li><b>Who is who (structure-mapping).</b> The shots are lined up using the background. A person only maps to a person and a cup to a cup; among those, the mapping that keeps the most relations intact wins over any single look-alike.</li>
               <li><b>What else changes.</b> Swapping someone's pose brings along what belongs to them (what they hold or wear) and leaves alone what doesn't (the chair they sit on, people in front or behind). Each decision shows its reason.</li>
-              <li><b>Learning by analogy.</b> When you change one of those decisions, it remembers that as an example. In later photos, similar situations are judged by comparing them with the closest examples, yours counting most.</li>
+              <li><b>Physics.</b> Each decision is reasoned out from how the physical world works: something held up only by a hand would fall if left behind (gravity), a rider and a bike move as one, a chair stays because the floor holds it, and nearer things hide farther ones. New faces are also relit to match the light in the photo.</li>
+              <li><b>Learning and dreaming.</b> When you change one of those decisions, it remembers that moment. While the app is idle it "dreams": it replays those memories, merges similar ones into general rules, compares them with the physics, and extends them to similar things (a lesson about chairs also covers couches).</li>
             </ul>
             <p className="learned">
               <Brain size={16} />
               {learned ? `It has learned from ${learned} of your choices on this device.` : 'It has not learned from your choices yet.'}
-              {learned > 0 && <button className="text-button" onClick={() => { setCases(forget()); setLearned(0); }} type="button">Forget what it learned</button>}
+              {learned > 0 && <button className="text-button" onClick={() => setMemory(forget())} type="button">Forget what it learned</button>}
             </p>
+            {memory.insights.length > 0 && (
+              <div className="dreams">
+                <b>What it worked out while dreaming</b>
+                <ul>{memory.insights.map((insight) => <li key={insight}>{insight}</li>)}</ul>
+              </div>
+            )}
             <p className="fine">Everything runs inside your browser. The models download once from Google MediaPipe. Your original files are never changed. Please only edit photos of people who'd be happy with it.</p>
           </div>
         </details>

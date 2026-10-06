@@ -1,6 +1,7 @@
 import { Delaunay } from 'd3-delaunay';
 import { drawSceneSwap, type EditRegion, type SceneSwap } from './composeScene';
-import { decodeFull, distance, OVAL, type Box, type Face, type Photo, type Point } from './vision';
+import { fitShading, shade, vertexNormals, type Vec3 } from './physics';
+import { clamp, decodeFull, distance, OVAL, type Box, type Face, type Photo, type Point } from './vision';
 
 export type Swap = { target: Face; donor: Face; donorPhoto: Photo };
 export type PlacedSceneSwap = { swap: SceneSwap; region: EditRegion };
@@ -199,6 +200,84 @@ function restoreDetail(patch: ImageData, core: Box, wanted: number) {
   data.set(sharpened(low));
 }
 
+/**
+ * Relights the warped face to the light falling on the face it replaces (physics.ts). Faces are
+ * close to Lambertian, so on skin I ≈ c0 + c·n. Fitting that on both faces from their mesh
+ * normals and multiplying each point by target shading ÷ donor shading moves the donor's
+ * highlights and shadows to where the target photo's light puts them (a ratio-image relight).
+ */
+function relight(patch: ImageData, targetData: Uint8ClampedArray, donorPixels: ImageData, target: Face, donor: Face, region: Box, donorRegion: Box, dest: Point[], triangles: ArrayLike<number>) {
+  const targetNormals = vertexNormals(target.points, target.depth, triangles);
+  const donorNormals = vertexNormals(donor.points, donor.depth, triangles);
+  const luminance = (data: Uint8ClampedArray, width: number, height: number, x: number, y: number) => {
+    let sum = 0, count = 0;
+    for (let dy = -1; dy <= 1; dy += 1) {
+      for (let dx = -1; dx <= 1; dx += 1) {
+        const px = Math.round(x) + dx, py = Math.round(y) + dy;
+        if (px < 0 || py < 0 || px >= width || py >= height) continue;
+        const i = (py * width + px) * 4;
+        sum += data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+        count += 1;
+      }
+    }
+    return count ? sum / count : -1;
+  };
+  // Skin only: eyes, brows, lips and the hairline edge have their own colour, not shading.
+  const outline = new Set(OVAL);
+  const skin = (face: Face, i: number) => {
+    if (outline.has(i)) return false;
+    const p = face.points[i];
+    const eyes = [[33, 133], [362, 263]].map(([a, b]) => ({ x: (face.points[a].x + face.points[b].x) / 2, y: (face.points[a].y + face.points[b].y) / 2 }));
+    const mouth = { x: (face.points[13].x + face.points[14].x) / 2, y: (face.points[13].y + face.points[14].y) / 2 };
+    return eyes.every((e) => distance(p, e) > face.size * 0.16) && distance(p, mouth) > face.size * 0.2;
+  };
+  const samples = (face: Face, normals: Vec3[], data: Uint8ClampedArray, width: number, height: number, origin: Box) =>
+    face.points.flatMap((p, i) => {
+      if (!skin(face, i)) return [];
+      const lum = luminance(data, width, height, p.x - origin.x, p.y - origin.y);
+      return lum > 8 && lum < 250 ? [{ n: normals[i], lum }] : [];
+    });
+  const targetLight = fitShading(samples(target, targetNormals, targetData, region.w, region.h, region));
+  const donorLight = fitShading(samples(donor, donorNormals, donorPixels.data, donorRegion.w, donorRegion.h, donorRegion));
+  if (!targetLight || !donorLight) return;
+  const ratio = target.points.map((_, i) => {
+    const below = shade(donorLight, donorNormals[i]);
+    return below > 4 ? clamp(shade(targetLight, targetNormals[i]) / below, 0.7, 1.45) : 1;
+  });
+  // Spread the per-point ratios over the face mesh (barycentric), on a coarse grid.
+  const cell = 4;
+  const gw = Math.ceil(region.w / cell) + 1, gh = Math.ceil(region.h / cell) + 1;
+  const grid = new Float32Array(gw * gh).fill(1);
+  for (let t = 0; t < triangles.length; t += 3) {
+    const [a, b, c] = [triangles[t], triangles[t + 1], triangles[t + 2]];
+    const [pa, pb, pc] = [dest[a], dest[b], dest[c]].map((p) => ({ x: p.x / cell, y: p.y / cell }));
+    const det = (pb.y - pc.y) * (pa.x - pc.x) + (pc.x - pb.x) * (pa.y - pc.y);
+    if (Math.abs(det) < 1e-6) continue;
+    for (let gy = Math.max(0, Math.floor(Math.min(pa.y, pb.y, pc.y))); gy <= Math.min(gh - 1, Math.ceil(Math.max(pa.y, pb.y, pc.y))); gy += 1) {
+      for (let gx = Math.max(0, Math.floor(Math.min(pa.x, pb.x, pc.x))); gx <= Math.min(gw - 1, Math.ceil(Math.max(pa.x, pb.x, pc.x))); gx += 1) {
+        const wa = ((pb.y - pc.y) * (gx - pc.x) + (pc.x - pb.x) * (gy - pc.y)) / det;
+        const wb = ((pc.y - pa.y) * (gx - pc.x) + (pa.x - pc.x) * (gy - pc.y)) / det;
+        const wc = 1 - wa - wb;
+        if (wa < -0.05 || wb < -0.05 || wc < -0.05) continue;
+        grid[gy * gw + gx] = wa * ratio[a] + wb * ratio[b] + wc * ratio[c];
+      }
+    }
+  }
+  const { data, width, height } = patch;
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const i = (y * width + x) * 4;
+      if (data[i + 3] === 0) continue;
+      const fx = x / cell, fy = y / cell;
+      const x0 = Math.min(gw - 1, Math.floor(fx)), y0 = Math.min(gh - 1, Math.floor(fy));
+      const x1 = Math.min(gw - 1, x0 + 1), y1 = Math.min(gh - 1, y0 + 1);
+      const tx = fx - x0, ty = fy - y0;
+      const m = (grid[y0 * gw + x0] * (1 - tx) + grid[y0 * gw + x1] * tx) * (1 - ty) + (grid[y1 * gw + x0] * (1 - tx) + grid[y1 * gw + x1] * tx) * ty;
+      for (let k = 0; k < 3; k += 1) data[i + k] = data[i + k] * m;
+    }
+  }
+}
+
 /** Renders one replacement face as a transparent patch positioned over the target photo. */
 function swapPatch(base: Pixels, target: Face, donor: Face, donorPhoto: Pixels) {
   const region = regionAround(target.box, 0.12, base.width, base.height);
@@ -259,6 +338,7 @@ function swapPatch(base: Pixels, target: Face, donor: Face, donorPhoto: Pixels) 
   // Enlarging a smaller face can't invent detail, so expect proportionally less.
   const enlargement = Math.max(1, target.size / donor.size);
   restoreDetail(patch, middle(target.box, region), donorDetail / enlargement ** 2);
+  relight(patch, targetData, donorCrop.context.getImageData(0, 0, donorRegion.w, donorRegion.h), target, donor, region, donorRegion, dest, triangles);
   const planes = lightingPlanes(patch.data, targetData, mask, region.w, region.h);
   for (let y = 0; y < region.h; y += 1) {
     for (let x = 0; x < region.w; x += 1) {
@@ -297,6 +377,7 @@ function scaleFace(face: Face, k: number): Face {
   return {
     ...face,
     points: face.points.map((p) => ({ x: p.x * k, y: p.y * k })),
+    depth: face.depth.map((d) => d * k),
     box: { x: face.box.x * k, y: face.box.y * k, w: face.box.w * k, h: face.box.h * k },
     center: { x: face.center.x * k, y: face.center.y * k },
     size: face.size * k,
